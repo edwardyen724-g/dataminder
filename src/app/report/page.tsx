@@ -1,46 +1,63 @@
 import React, { useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { app } from '../../lib/firebase';
-import ReportTable from '../../components/ReportTable';
-import TutorialModal from '../../components/TutorialModal';
+import { db } from '@/lib/firebase'; // Assuming you have a firebase config file
+import { collection, getDocs } from 'firebase/firestore';
 
-const auth = getAuth(app);
+interface Report {
+  id: string;
+  title: string;
+  description: string;
+}
 
-const ReportPage: React.FC = () => {
-  const [user, setUser] = useState<firebase.User | null>(null);
-  const [showTutorial, setShowTutorial] = useState<boolean>(false);
-
+const ReportsPage: React.FC = () => {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (user) {
-        // Check if this is the user's first time visiting the Reports page
-        const hasVisited = localStorage.getItem('hasVisitedReports');
-        if (!hasVisited) {
-          setShowTutorial(true);
-          localStorage.setItem('hasVisitedReports', 'true');
-        }
+    const fetchReports = async () => {
+      setLoading(true);
+      try {
+        const auth = getAuth();
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            const reportsCollection = collection(db, 'reports');
+            const reportsSnapshot = await getDocs(reportsCollection);
+            const reportsData: Report[] = reportsSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as Report[];
+            setReports(reportsData);
+          } else {
+            setError('User not authenticated');
+          }
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setLoading(false);
       }
-    });
+    };
 
-    return () => unsubscribe();
+    fetchReports();
   }, []);
 
-  if (!user) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <h1>Please sign in to access the reports.</h1>
-      </div>
-    );
-  }
+  if (loading) return <div>Loading reports...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Unlock the Power of Data Management — No Tech Skills Needed!</h1>
-      <ReportTable userId={user.uid} />
-      {showTutorial && <TutorialModal onClose={() => setShowTutorial(false)} />}
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold">Reports</h1>
+      <ul className="mt-4">
+        {reports.map(report => (
+          <li key={report.id} className="border p-2 mb-2 rounded">
+            <h2 className="font-semibold">{report.title}</h2>
+            <p>{report.description}</p>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };
 
-export default ReportPage;
+export default ReportsPage;
