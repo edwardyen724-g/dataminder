@@ -1,52 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
-import { useRouter } from 'next/navigation';
-import 'tailwindcss/tailwind.css';
-
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-// Initialize Firebase
-initializeApp(firebaseConfig);
+import { auth } from '@/lib/firebase'; // import firebase client SDK
+import { onAuthStateChanged } from 'firebase/auth';
+import Link from 'next/link';
 
 const Dashboard: React.FC = () => {
   const [user, setUser] = useState<firebase.User | null>(null);
-  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUser(user);
-      } else {
-        router.push('/login');
-      }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
     });
-
     return () => unsubscribe();
-  }, [router]);
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div>
+        <h1>Access Denied</h1>
+        <p>Please <Link href="/login">log in</Link> to access the dashboard.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-4xl font-bold mb-4">Dashboard</h1>
-      {user ? (
-        <div className="text-lg">
-          <p>Welcome, {user.email}!</p>
-          <p>Unlock the Power of Data Management — No Tech Skills Needed!</p>
-          <p>Start managing your data today.</p>
-          {/* Place for the dashboard features such as multi-table visualizer, etc. */}
-        </div>
-      ) : (
-        <p>Loading...</p>
-      )}
+    <div className="container mx-auto px-4">
+      <h1 className="text-2xl font-bold">Welcome to DataMinder, {user.displayName || user.email}!</h1>
+      <p className="mt-4">Unlock the Power of Data Management — No Tech Skills Needed!</p>
+      
+      <h2 className="mt-8 text-xl font-semibold">Features:</h2>
+      <ul className="list-disc pl-5 mt-2">
+        <li>Intuitive multi-table data visualizer that allows users to see relationships at a glance.</li>
+        <li>Drag-and-drop interface for easy data editing and rearrangement.</li>
+        <li>Dynamic linking of records across tables with one-click functionality.</li>
+        <li>Basic reporting tools to summarize data and visualize trends.</li>
+        <li>User-friendly onboarding tutorial to get started quickly.</li>
+      </ul>
+
+      <Link href="/data" className="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded">
+        Go to Data Management
+      </Link>
     </div>
   );
 };
